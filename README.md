@@ -73,7 +73,7 @@ This project is intended for personal, non-commercial use. Review the included [
 
 ## Deploy to Cloudflare
 
-The primary button deploys MiruRip as a Cloudflare Worker with static assets. At build time, Wrangler compiles the existing file-based Pages Functions in `functions/` into one Worker and preserves their routes; the Worker falls back to the bundled Vite assets for the app. No API-route refactor is required.
+The primary button deploys MiruRip as a Cloudflare Worker with static assets. At build time, Wrangler compiles the existing file-based Pages Functions in `functions/` into one Worker and preserves their routes; the Worker falls back to the bundled Vite assets for the app. No API-route refactor is required. The deploy screen offers a repository-privacy checkbox; its choice belongs to the deploying GitHub account.
 
 The button creates a deployment in the visitor’s own Cloudflare account. It needs no API key for the standard configuration. The project has no required Cloudflare KV, D1, or R2 binding. Only the optional AniList authorization-code flow needs an `ANILIST_CLIENT_SECRET` Worker secret.
 

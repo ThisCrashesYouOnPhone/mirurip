@@ -8,7 +8,7 @@
     "build:frontend": "vite build",
     "build:functions": "wrangler pages functions build functions --outdir=dist-worker --build-output-directory=dist --compatibility-date=2026-08-31",
     "build": "npm run build:frontend && npm run build:functions",
-    "build:pages": "npm run build:frontend",
+    "build:pages": "npm run build:frontend && node scripts/prepare-pages-redirect.mjs",
     "deploy:worker": "npm run build && wrangler deploy",
     "preview": "vite preview",
     "start": "vite build && bun run ./server/server.ts",
