@@ -1,11 +1,15 @@
 {
-  "name": "miruro_no_kuon",
+  "name": "mirurip",
   "private": true,
   "version": "0.5.2",
   "type": "module",
   "scripts": {
     "dev": "vite --host",
-    "build": "vite build",
+    "build:frontend": "vite build",
+    "build:functions": "wrangler pages functions build functions --outdir=dist-worker --build-output-directory=dist --compatibility-date=2026-08-31",
+    "build": "npm run build:frontend && npm run build:functions",
+    "build:pages": "npm run build:frontend",
+    "deploy:worker": "npm run build && wrangler deploy",
     "preview": "vite preview",
     "start": "vite build && bun run ./server/server.ts",
     "lint": "eslint . --ext js,jsx,ts,tsx --report-unused-disable-directives --max-warnings 0",

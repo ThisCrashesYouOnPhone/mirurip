@@ -1,6 +1,6 @@
 <div align="center">
 
-# MIRURO IP
+# MIRURIP
 
 An optimized Miruro fork focused on reliable playback, mobile browsers, and low-memory iPad devices.
 
@@ -12,13 +12,14 @@ An optimized Miruro fork focused on reliable playback, mobile browsers, and low-
 [![License](https://img.shields.io/github/license/ThisCrashesYouOnPhone/mirurip?style=flat)](LICENSE)
 [![Repository views](https://gitviews.com/repo/ThisCrashesYouOnPhone/mirurip.svg)](https://github.com/ThisCrashesYouOnPhone/mirurip)
 
+[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/ThisCrashesYouOnPhone/mirurip)
 [![Deploy with Cloudflare Pages](https://img.shields.io/badge/Deploy%20with-Cloudflare%20Pages-f38020?logo=cloudflare&logoColor=white)](https://developers.cloudflare.com/pages/configuration/git-integration/github-integration/)
 
 </div>
 
 ## About
 
-Miruro IP is a maintained, performance-oriented fork of [Miruro](https://github.com/Miruro-no-kuon/Miruro). It keeps the original React/Vite experience while adding a more defensive playback pipeline, typed edge functions, AniList tracking, mobile-safe layouts, and source-aware subtitle handling.
+MiruRip is a maintained, performance-oriented fork of [Miruro](https://github.com/Miruro-no-kuon/Miruro). It keeps the original React/Vite experience while adding a more defensive playback pipeline, typed edge functions, AniList tracking, mobile-safe layouts, and source-aware subtitle handling.
 
 This project is intended for personal, non-commercial use. Review the included [license](LICENSE), the terms of each upstream service, and the laws applicable to you before deploying it.
 
@@ -71,16 +72,29 @@ This project is intended for personal, non-commercial use. Review the included [
 - Long-series fallback metadata avoids one request per visible card and reduces rate-limit pressure.
 - Browser storage remains device-local, while shared edge/API caches can benefit multiple devices requesting the same data.
 
-## Deploy with Cloudflare Pages
+## Deploy to Cloudflare
 
-The badge above opens the supported Cloudflare Pages Git integration flow. Cloudflare’s official one-click `Deploy to Cloudflare` button is currently for Workers applications; it does not deploy Pages applications. This fork therefore uses the Pages flow so the `functions/` API routes and static frontend are deployed correctly.
+The primary button deploys MiruRip as a Cloudflare Worker with static assets. At build time, Wrangler compiles the existing file-based Pages Functions in `functions/` into one Worker and preserves their routes; the Worker falls back to the bundled Vite assets for the app. No API-route refactor is required.
+
+The button creates a deployment in the visitor’s own Cloudflare account. It does not copy secrets: configure AniList settings and any optional server-side variables after deployment. The project has no required Cloudflare KV, D1, or R2 binding.
+
+For a new Worker deployment, use the button above or run:
+
+```powershell
+npm ci
+npm run deploy:worker
+```
+
+### Cloudflare Pages (existing deployment path)
+
+Pages remains supported for anyone who prefers it. Use `npm run build:pages` as the build command so Pages continues to discover and deploy the original `functions/` directory directly.
 
 1. Fork this repository and open **Cloudflare Dashboard → Workers & Pages → Create application → Pages → Connect to Git**.
 2. Select your fork and the `main` branch.
 3. Use these build settings:
 
    - Framework preset: **None**
-   - Build command: `npm run build`
+   - Build command: `npm run build:pages`
    - Build output directory: `dist`
    - Root directory: `/`
 
@@ -91,7 +105,7 @@ For direct upload from a trusted local machine:
 
 ```powershell
 npm ci
-npm run build
+npm run build:pages
 $env:CLOUDFLARE_API_TOKEN=(Get-Content 'cft.txt').Trim()
 $env:CLOUDFLARE_ACCOUNT_ID='YOUR_ACCOUNT_ID'
 npx wrangler pages deploy dist --project-name YOUR_PAGES_PROJECT --commit-dirty=true

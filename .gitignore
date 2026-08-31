@@ -5,6 +5,7 @@ jspm_packages/
 
 # Vite and Build outputs
 dist/
+dist-worker/
 dist-ssr/
 build/
 out/
