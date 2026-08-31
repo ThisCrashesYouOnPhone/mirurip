@@ -75,7 +75,7 @@ This project is intended for personal, non-commercial use. Review the included [
 
 The primary button deploys MiruRip as a Cloudflare Worker with static assets. At build time, Wrangler compiles the existing file-based Pages Functions in `functions/` into one Worker and preserves their routes; the Worker falls back to the bundled Vite assets for the app. No API-route refactor is required.
 
-The button creates a deployment in the visitor’s own Cloudflare account. It does not copy secrets: configure AniList settings and any optional server-side variables after deployment. The project has no required Cloudflare KV, D1, or R2 binding.
+The button creates a deployment in the visitor’s own Cloudflare account. It needs no API key for the standard configuration. The project has no required Cloudflare KV, D1, or R2 binding. Only the optional AniList authorization-code flow needs an `ANILIST_CLIENT_SECRET` Worker secret.
 
 For a new Worker deployment, use the button above or run:
 
@@ -97,7 +97,7 @@ Pages remains supported for anyone who prefers it. Use `npm run build:pages` as 
    - Build output directory: `dist`
    - Root directory: `/`
 
-4. Add the required environment values from [.env.example](.env.example) under the Pages project’s production and preview environments. At minimum, configure `VITE_BACKEND_URL` and your AniList client ID/redirect settings if AniList login is enabled.
+4. Add only the optional values you need from [env.example](env.example) under the Pages project’s production and preview environments. For the authorization-code AniList flow, also configure `ANILIST_CLIENT_SECRET` as a server-side secret.
 5. Save and deploy. Future pushes to `main` will create production deployments; other branches can be configured as previews.
 
 For direct upload from a trusted local machine:
@@ -122,7 +122,9 @@ cd mirurip
 npm ci
 ```
 
-Copy `.env.example` to `.env.local`, then start the development server:
+For local overrides, copy [env.example](env.example) to `.env`. Do not add a client secret to a Vite-prefixed browser variable; set `ANILIST_CLIENT_SECRET` only in your Worker/Pages secret configuration when using the authorization-code flow.
+
+Copy [env.example](env.example) to `.env.local`, then start the development server:
 
 ```bash
 npm run dev

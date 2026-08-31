@@ -1,5 +1,6 @@
 interface Env {
   VITE_CLIENT_ID?: string;
+  ANILIST_CLIENT_SECRET?: string;
   VITE_CLIENT_SECRET?: string;
   VITE_REDIRECT_URI?: string;
 }
@@ -18,7 +19,7 @@ export async function onRequestPost(context: { request: Request; env: Env }) {
 
     const payload = {
       client_id: context.env.VITE_CLIENT_ID,
-      client_secret: context.env.VITE_CLIENT_SECRET,
+      client_secret: context.env.ANILIST_CLIENT_SECRET || context.env.VITE_CLIENT_SECRET,
       code,
       grant_type: 'authorization_code',
       redirect_uri: context.env.VITE_REDIRECT_URI,

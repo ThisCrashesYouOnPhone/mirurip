@@ -24,7 +24,7 @@ async function handleTokenExchange(context) {
 
     const payload = {
       client_id: context.env.VITE_CLIENT_ID,
-      client_secret: context.env.VITE_CLIENT_SECRET,
+      client_secret: context.env.ANILIST_CLIENT_SECRET || context.env.VITE_CLIENT_SECRET,
       code,
       grant_type: 'authorization_code',
       redirect_uri: context.env.VITE_REDIRECT_URI,
