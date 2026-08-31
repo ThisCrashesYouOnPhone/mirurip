@@ -48,7 +48,7 @@
     "swiper": "^11.0.7",
     "typescript": "^5.0.0",
     "uuid": "^9.0.1",
-    "wrangler": "^3.52.0"
+    "wrangler": "^4.127.1"
   },
   "devDependencies": {
     "@testing-library/jest-dom": "^7.0.1",
