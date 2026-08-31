@@ -13,7 +13,6 @@ An optimized Miruro fork focused on reliable playback, mobile browsers, and low-
 [![Repository views](https://gitviews.com/repo/ThisCrashesYouOnPhone/mirurip.svg)](https://github.com/ThisCrashesYouOnPhone/mirurip)
 
 [![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/ThisCrashesYouOnPhone/mirurip)
-[![Deploy with Cloudflare Pages](https://img.shields.io/badge/Deploy%20with-Cloudflare%20Pages-f38020?logo=cloudflare&logoColor=white)](https://developers.cloudflare.com/pages/configuration/git-integration/github-integration/)
 
 </div>
 
@@ -85,7 +84,7 @@ npm ci
 npm run deploy:worker
 ```
 
-### Cloudflare Pages (existing deployment path)
+### Manual Cloudflare Pages alternative
 
 Pages remains supported for anyone who prefers it. Use `npm run build:pages` as the build command so Pages continues to discover and deploy the original `functions/` directory directly.
 
