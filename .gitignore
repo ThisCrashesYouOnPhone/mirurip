@@ -9,6 +9,7 @@ dist-ssr/
 build/
 out/
 .temp/
+.wrangler/
 
 # Bun
 .bun/
@@ -34,7 +35,7 @@ ehthumbs.db
 Thumbs.db
 
 # Package manager lock files
-package-lock.json
+# Keep package-lock.json tracked so Cloudflare/GitHub Actions can use npm ci.
 yarn.lock
 pnpm-lock.yaml
 bun.lockb
@@ -66,3 +67,17 @@ lerna-debug.log*
 *.swn
 *.swp
 *.orig
+
+# Local secrets and deployment credentials
+/cft.txt
+*.secret
+*.secret.*
+
+# HTTP Toolkit captures and local reverse-engineering artifacts
+/*.har
+/*.her
+/-*.txt
+/op
+/pass.js
+/scratch/
+/STREAM_AUDIT_REPORT.md

@@ -4,8 +4,13 @@ import { Link } from 'react-router-dom';
 import { FaPlay } from 'react-icons/fa';
 import { Swiper, SwiperSlide } from 'swiper/react';
 import 'swiper/swiper-bundle.css';
-import { Episode } from '../../index';
+import type { Anime, Episode } from '../../index';
 import { IoIosCloseCircleOutline } from 'react-icons/io';
+import { fetchAnimeData } from '../../hooks/useApi';
+import {
+  safeLocalStorageGetJson,
+  safeLocalStorageSet,
+} from '../../client/safeStorage';
 
 const LOCAL_STORAGE_KEYS = {
   WATCHED_EPISODES: 'watched-episodes',
@@ -21,8 +26,57 @@ interface LastVisitedData {
     timestamp?: number;
     titleEnglish?: string;
     titleRomaji?: string;
+    image?: string;
+    cover?: string;
   };
 }
+
+const readWatchedEpisodes = (): Record<string, Episode[]> => {
+  const allEpisodes = safeLocalStorageGetJson<Record<string, Episode[]>>(
+    LOCAL_STORAGE_KEYS.WATCHED_EPISODES,
+    {},
+  );
+
+  // Migrate the per-anime format written by older watch-page builds so
+  // existing Continue Watching entries are not lost.
+  try {
+    const legacyPrefix = 'watched-episodes-';
+    for (let index = 0; index < localStorage.length; index += 1) {
+      const key = localStorage.key(index);
+      if (!key || !key.startsWith(legacyPrefix)) continue;
+      const animeId = key.slice(legacyPrefix.length);
+      const episodes = safeLocalStorageGetJson<Episode[]>(key, []);
+      if (!animeId || !Array.isArray(episodes) || episodes.length === 0) continue;
+      const existing = allEpisodes[animeId] || [];
+      const merged = [...existing];
+      episodes.forEach((episode) => {
+        const episodeIndex = merged.findIndex((item) => item.id === episode.id);
+        if (episodeIndex === -1) merged.push(episode);
+        else merged[episodeIndex] = { ...merged[episodeIndex], ...episode };
+      });
+      allEpisodes[animeId] = merged;
+    }
+  } catch {
+    // Storage can be unavailable in private browsing; aggregate data remains usable.
+  }
+
+  return allEpisodes;
+};
+
+const readCachedAnimeMetadata = (animeId: string) => {
+  const cached = safeLocalStorageGetJson<{ value?: Anime } | null>(
+    `cache_animeData_${animeId}`,
+    null,
+  );
+  const anime = cached?.value;
+  if (!anime) return undefined;
+  return {
+    titleEnglish: anime.title?.english || '',
+    titleRomaji: anime.title?.romaji || '',
+    image: anime.image || '',
+    cover: anime.cover || '',
+  };
+};
 
 const StyledSwiperContainer = styled(Swiper)`
   position: relative;
@@ -179,14 +233,84 @@ const calculateSlidesPerView = (windowWidth: number): number => {
 
 export const EpisodeCard: React.FC = () => {
   const [watchedEpisodesData, setWatchedEpisodesData] = useState(
-    localStorage.getItem('watched-episodes'),
+    JSON.stringify(readWatchedEpisodes()),
   );
   const [windowWidth, setWindowWidth] = useState(window.innerWidth);
 
-  const lastVisitedData = useMemo<LastVisitedData>(() => {
-    const data = localStorage.getItem(LOCAL_STORAGE_KEYS.LAST_ANIME_VISITED);
-    return data ? JSON.parse(data) : {};
-  }, []);
+  const [lastVisitedData, setLastVisitedData] = useState<LastVisitedData>(() =>
+    safeLocalStorageGetJson<LastVisitedData>(
+      LOCAL_STORAGE_KEYS.LAST_ANIME_VISITED,
+      {},
+    ),
+  );
+
+  useEffect(() => {
+    const allEpisodes = readWatchedEpisodes();
+    const missingMetadata = Object.keys(allEpisodes).filter((animeId) => {
+      const stored = lastVisitedData[animeId] || readCachedAnimeMetadata(animeId);
+      return (
+        !stored?.titleEnglish &&
+        !stored?.titleRomaji &&
+        !stored?.image &&
+        !stored?.cover
+      );
+    });
+
+    if (missingMetadata.length === 0) return;
+    let cancelled = false;
+    // Hydrate a small batch at a time so a large watch history does not fire a
+    // burst of AniList requests on low-end iPads. The remaining entries are
+    // filled naturally as the user visits those titles.
+    void Promise.all(
+      missingMetadata.slice(0, 6).map(async (animeId) => {
+        try {
+          const anime = await fetchAnimeData(animeId);
+          const metadata = {
+            timestamp: Date.now(),
+            titleEnglish: anime.title?.english || '',
+            titleRomaji: anime.title?.romaji || '',
+            image: anime.image || '',
+            cover: anime.cover || '',
+          };
+          if (
+            !metadata.titleEnglish &&
+            !metadata.titleRomaji &&
+            !metadata.image &&
+            !metadata.cover
+          ) {
+            return null;
+          }
+          return {
+            animeId,
+            metadata,
+          };
+        } catch {
+          return null;
+        }
+      }),
+    ).then((results) => {
+      if (cancelled) return;
+      const hydrated = results.filter(
+        (result): result is NonNullable<typeof result> => result !== null,
+      );
+      if (hydrated.length === 0) return;
+      setLastVisitedData((previous) => {
+        const updated = { ...previous };
+        hydrated.forEach(({ animeId, metadata }) => {
+          updated[animeId] = { ...updated[animeId], ...metadata };
+        });
+        safeLocalStorageSet(
+          LOCAL_STORAGE_KEYS.LAST_ANIME_VISITED,
+          JSON.stringify(updated),
+        );
+        return updated;
+      });
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [watchedEpisodesData, lastVisitedData]);
 
   useEffect(() => {
     const handleResize = () => {
@@ -233,10 +357,12 @@ export const EpisodeCard: React.FC = () => {
           playbackInfo[episode.id]?.playbackPercentage || 0;
 
         // Determine anime title, preferring English, falling back to Romaji, then to "Episode Title"
+        const storedMetadata =
+          lastVisitedData[animeId] || readCachedAnimeMetadata(animeId) || {};
         const animeTitle =
-          lastVisitedData[animeId]?.titleEnglish ||
-          lastVisitedData[animeId]?.titleRomaji ||
-          '';
+          storedMetadata.titleEnglish || storedMetadata.titleRomaji || '';
+        const image =
+          episode.image || storedMetadata.cover || storedMetadata.image || '';
 
         // Conditional title display
         const displayTitle = `${animeTitle}${episode.title ? ` - ${episode.title}` : ''}`;
@@ -246,8 +372,18 @@ export const EpisodeCard: React.FC = () => {
           delete updatedEpisodes[animeId];
 
           const newWatchedEpisodesData = JSON.stringify(updatedEpisodes);
-          localStorage.setItem('watched-episodes', newWatchedEpisodesData);
+          safeLocalStorageSet('watched-episodes', newWatchedEpisodesData);
+          safeLocalStorageSet(`watched-episodes-${animeId}`, JSON.stringify([]));
           setWatchedEpisodesData(newWatchedEpisodesData); // Trigger re-render
+          setLastVisitedData((previous) => {
+            const updated = { ...previous };
+            delete updated[animeId];
+            safeLocalStorageSet(
+              LOCAL_STORAGE_KEYS.LAST_ANIME_VISITED,
+              JSON.stringify(updated),
+            );
+            return updated;
+          });
         };
 
         return (
@@ -257,7 +393,7 @@ export const EpisodeCard: React.FC = () => {
               style={{ textDecoration: 'none' }}
               title={`Continue Watching ${displayTitle}`}
             >
-              <img src={episode.image} alt={`Cover for ${animeTitle}`} />
+              <img src={image} alt={`Cover for ${animeTitle || 'anime'}`} />
               <PlayIcon aria-label='Play Episode'>
                 <FaPlay />
               </PlayIcon>

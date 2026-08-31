@@ -3,11 +3,18 @@ import {
   useContext,
   useState,
   useEffect,
+  useCallback,
   ReactNode,
 } from 'react';
-import axios from 'axios';
 import { UserData } from './userInfoTypes'; // Adjust the path as necessary
-import { fetchUserData, buildAuthUrl } from './authService'; // Adjust the path as necessary
+import {
+  fetchUserData,
+  buildAuthUrl,
+} from './authService'; // Adjust the path as necessary
+import {
+  safeLocalStorageGet,
+  safeLocalStorageRemove,
+} from './safeStorage';
 
 type AuthContextType = {
   isLoggedIn: boolean;
@@ -27,38 +34,47 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   // Calculate username from userData
   const username = userData ? userData.name : null; // Assuming 'username' is a property of UserData
 
-  useEffect(() => {
-    const token = localStorage.getItem('accessToken');
+  const refreshAuth = useCallback(async () => {
+    const token = safeLocalStorageGet('accessToken');
     if (token) {
-      fetchUserData(token)
-        .then((data) => {
-          setUserData(data);
-          setIsLoggedIn(true);
-          setAuthLoading(false); // Set loading to false once user data is fetched
-        })
-        .catch((err) => {
-          console.error('Failed to fetch user data:', err);
-          logout(); // Ensures clean state on failure
-          setAuthLoading(false); // Ensure loading state is handled even in error
-        });
+      setAuthLoading(true);
+      try {
+        const data = await fetchUserData(token);
+        setUserData(data);
+        setIsLoggedIn(true);
+      } catch (err) {
+        console.error('Failed to fetch user data:', err);
+        safeLocalStorageRemove('accessToken');
+        setUserData(null);
+        setIsLoggedIn(false);
+      } finally {
+        setAuthLoading(false);
+      }
     } else {
-      setAuthLoading(false); // If no token, ensure loading is set to false
+      setUserData(null);
+      setIsLoggedIn(false);
+      setAuthLoading(false);
     }
   }, []);
 
-  const login = async () => {
+  useEffect(() => {
+    void refreshAuth();
+    window.addEventListener('authUpdate', refreshAuth);
+    return () => window.removeEventListener('authUpdate', refreshAuth);
+  }, [refreshAuth]);
+
+  const login = () => {
     try {
-      const response = await axios.get('/get-csrf-token');
-      const csrfToken = response.data.csrfToken;
-      const authUrl = buildAuthUrl(csrfToken);
+      const authUrl = buildAuthUrl();
       window.location.href = authUrl;
     } catch (error) {
-      console.error('Error fetching CSRF token or building auth URL:', error);
+      console.error('Error building AniList auth URL:', error);
     }
   };
 
   const logout = () => {
-    localStorage.removeItem('accessToken');
+    safeLocalStorageRemove('accessToken');
+    safeLocalStorageRemove('csrf_token');
     setIsLoggedIn(false);
     setUserData(null);
     setAuthLoading(true); // Reset auth loading state on logout

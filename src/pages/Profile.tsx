@@ -1,11 +1,14 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
+import { useAuth } from '../client/useAuth';
+import { EpisodeCard } from '../components/Home/EpisodeCard';
+import { WatchingAnilist } from '../components/Profile/WatchingAnilist';
 import { IoLogOutOutline } from 'react-icons/io5';
-import { useAuth, EpisodeCard, WatchingAnilist } from '../index';
 import { SiAnilist } from 'react-icons/si';
 import { CgProfile } from 'react-icons/cg';
 import { useNavigate } from 'react-router-dom';
 import { FiSettings } from 'react-icons/fi';
+import { safeLocalStorageSet } from '../client/safeStorage';
 
 const TopContainer = styled.div`
   display: flex;
@@ -30,7 +33,7 @@ const UserInfoContainer = styled.div`
 
 const ProfileContainer = styled.div`
   position: relative;
-  padding: 0.5rem;
+  padding: 1.5rem;
   background-color: var(--global-div-tr);
   border-radius: var(--global-border-radius);
   text-align: center;
@@ -44,6 +47,8 @@ const ProfileContainer = styled.div`
   img {
     border-radius: var(--global-border-radius);
     width: 100px;
+    height: 100px;
+    object-fit: cover;
   }
 `;
 
@@ -51,6 +56,27 @@ const PreferencesContainer = styled.div`
   max-width: 80rem;
   margin: auto;
   padding: 0.25rem;
+`;
+
+const SettingsIconBtn = styled.button`
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  background: var(--global-div);
+  color: var(--global-text);
+  border: none;
+  border-radius: var(--global-border-radius);
+  padding: 0.5rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.15s ease;
+
+  &:hover,
+  &:active {
+    transform: scale(1.05);
+  }
 `;
 
 const Loginbutton = styled.div`
@@ -63,8 +89,8 @@ const Loginbutton = styled.div`
   background-color: var(--global-div);
   color: var(--global-text);
   transition: 0.1s ease-in-out;
-  width: 10rem; // Fixed width
-  margin: 0 auto; // Center horizontally
+  width: 11rem;
+  margin: 1rem auto 0 auto;
   &:hover,
   &:active,
   &:focus {
@@ -80,40 +106,39 @@ const Loginbutton = styled.div`
     font-size: 1.25rem;
   }
 `;
-// Profile component
+
 export const Profile: React.FC = () => {
   const navigate = useNavigate();
   const { isLoggedIn, userData, login, logout } = useAuth();
+  const [tokenInput, setTokenInput] = useState('');
 
-  // Profile Page Document Title
   useEffect(() => {
     document.title =
-      isLoggedIn && userData ? `${userData.name} | Profile` : 'Profile';
+      isLoggedIn && userData ? `${userData.name} | Profile` : 'Profile | Miruro';
   }, [isLoggedIn, userData]);
 
   const handleSettingsClick = () => {
     navigate('/profile/settings');
   };
 
+  const handleManualToken = () => {
+    if (!tokenInput.trim()) return;
+    safeLocalStorageSet('accessToken', tokenInput.trim());
+    window.dispatchEvent(new CustomEvent('authUpdate'));
+    window.location.reload();
+  };
+
   return (
     <PreferencesContainer>
       <TopContainer>
         <ProfileContainer>
-          {/* <Loginbutton
-            onClick={handleSettingsClick}
-            style={{
-              position: 'absolute',
-              top: '0.5rem',
-              right: '0.5rem',
-              maxWidth: '2.25rem',
-            }}
-          >
-            <FiSettings size={22} />
-          </Loginbutton> */}
+          <SettingsIconBtn onClick={handleSettingsClick} title='Settings'>
+            <FiSettings size={20} />
+          </SettingsIconBtn>
           {isLoggedIn && userData ? (
             <>
               <img
-                src={userData.avatar.large}
+                src={userData.avatar?.large}
                 alt={`${userData.name}'s avatar`}
               />
               <p>
@@ -132,10 +157,12 @@ export const Profile: React.FC = () => {
                     Total minutes watched:{' '}
                     <b>{userData.statistics.anime.minutesWatched}</b>
                   </p>
-                  <p>
-                    Average score:{' '}
-                    <b>{userData.statistics.anime.meanScore.toFixed(2)}</b>
-                  </p>
+                  {userData.statistics.anime.meanScore && (
+                    <p>
+                      Average score:{' '}
+                      <b>{userData.statistics.anime.meanScore.toFixed(1)}</b>
+                    </p>
+                  )}
                 </>
               )}
               <Loginbutton onClick={logout}>
@@ -147,17 +174,55 @@ export const Profile: React.FC = () => {
             </>
           ) : (
             <UserInfoContainer>
-              <CgProfile size={'5rem'} style={{ marginBottom: '1rem' }} />
-              <p>Guest</p>
-              <p>Please log in to view your profile and AniList</p>
-              <a onClick={login}>
-                <Loginbutton>
-                  <b>Log in with </b>
-                  <span className='svg-wrapper'>
-                    <SiAnilist />
-                  </span>
-                </Loginbutton>
-              </a>
+              <CgProfile size={'4.5rem'} style={{ marginBottom: '0.75rem', opacity: 0.7 }} />
+              <p>
+                <b>Guest User</b>
+              </p>
+              <p>Log in with AniList to sync your watch progress and anime list.</p>
+              <Loginbutton onClick={login}>
+                <b>Log in with </b>
+                <span className='svg-wrapper'>
+                  <SiAnilist />
+                </span>
+              </Loginbutton>
+
+              <div style={{ marginTop: '1.5rem', width: '100%', maxWidth: '350px' }}>
+                <p style={{ fontSize: '0.8rem', opacity: 0.8, marginBottom: '0.5rem' }}>
+                  Or paste AniList Token manually:
+                </p>
+                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                  <input
+                    type="password"
+                    placeholder="Paste AniList Access Token..."
+                    value={tokenInput}
+                    onChange={(e) => setTokenInput(e.target.value)}
+                    style={{
+                      flex: 1,
+                      padding: '0.5rem 0.75rem',
+                      borderRadius: 'var(--global-border-radius)',
+                      border: '1px solid var(--global-border, #444)',
+                      background: 'var(--global-div)',
+                      color: 'var(--global-text)',
+                      fontSize: '0.85rem',
+                    }}
+                  />
+                  <button
+                    onClick={handleManualToken}
+                    style={{
+                      padding: '0.5rem 1rem',
+                      borderRadius: 'var(--global-border-radius)',
+                      border: 'none',
+                      background: 'var(--primary-accent, #595991)',
+                      color: '#fff',
+                      fontWeight: 'bold',
+                      cursor: 'pointer',
+                      fontSize: '0.85rem',
+                    }}
+                  >
+                    Save
+                  </button>
+                </div>
+              </div>
             </UserInfoContainer>
           )}
         </ProfileContainer>

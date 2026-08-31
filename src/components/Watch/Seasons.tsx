@@ -16,14 +16,18 @@ const SeasonCardContainer = styled.div`
 `;
 
 const SeasonCard = styled(Link)`
+  flex: 1 1 16rem;
+  min-width: 14rem;
   background-size: cover;
   background-position: center;
   padding: 0.9rem;
   height: 6rem;
-  width: 20rem;
+  width: min(100%, 22rem);
   @media (max-width: 500px) {
     height: 3rem;
-    width: 8rem;
+    flex-basis: 100%;
+    min-width: 0;
+    width: 100%;
     padding: 1.3rem;
   }
   position: relative;
@@ -51,7 +55,8 @@ const SeasonCard = styled(Link)`
   transition: transform 0.2s ease-in-out;
 
   &:hover,
-  &:active &:focus {
+  &:active,
+  &:focus {
     transform: translateY(-5px);
     @media (max-width: 500px) {
       transform: none;
@@ -89,34 +94,49 @@ const RelationType = styled.div`
   margin-bottom: 0.75rem;
 `;
 
-export const Seasons: React.FC<{ relations: Relation[] }> = ({ relations }) => {
-  const sortedRelations = relations.sort((a, b) => {
-    if (a.relationType === 'PREQUEL' && b.relationType !== 'PREQUEL') {
-      return -1;
-    }
-    if (a.relationType !== 'PREQUEL' && b.relationType === 'PREQUEL') {
-      return 1;
-    }
-    return 0;
+export function sortSeasonRelations(relations: Relation[]): Relation[] {
+  return [...relations].sort((a, b) => {
+    const dateDifference = (a.releaseDate || 0) - (b.releaseDate || 0);
+    if (dateDifference !== 0) return dateDifference;
+    const yearDifference = (a.seasonYear || 0) - (b.seasonYear || 0);
+    if (yearDifference !== 0) return yearDifference;
+    return (a.title.english || a.title.romaji || a.title.userPreferred)
+      .localeCompare(b.title.english || b.title.romaji || b.title.userPreferred);
   });
+}
+
+export const Seasons: React.FC<{ relations: Relation[] }> = ({ relations }) => {
+  const sortedRelations = sortSeasonRelations(relations);
+
+  const getSeasonLabel = (relation: Relation) => {
+    if (relation.relationType === 'CURRENT') return 'Now watching';
+    if (relation.seasonYear && relation.season) {
+      return `${relation.season[0]}${relation.season.slice(1).toLowerCase()} ${relation.seasonYear}`;
+    }
+    return relation.relationType === 'SEQUEL' ? 'Sequel' : 'Prequel';
+  };
 
   return (
     <SeasonCardContainer>
       {sortedRelations.map((relation) => (
+        (() => {
+          const artwork = relation.image || relation.cover || '';
+          const title = relation.title.english || relation.title.romaji || relation.title.userPreferred;
+          return (
         <SeasonCard
           key={relation.id}
           to={`/watch/${relation.id}`}
-          title={`Watch ${relation.title.english || relation.title.romaji || relation.title.userPreferred}`}
-          aria-label={`Watch ${relation.title.english || relation.title.romaji || relation.title.userPreferred}`}
-          style={{ backgroundImage: `url(${relation.image})` }}
+          title={`Watch ${title}`}
+          aria-label={`Watch ${title}`}
+          style={{ backgroundImage: artwork ? `url(${artwork})` : undefined }}
         >
           <img
-            src={relation.image}
-            alt={`${relation.title.english || relation.title.romaji || relation.title.userPreferred} Cover`}
+            src={artwork}
+            alt={`${title} Cover`}
             style={{ display: 'none' }}
           />
           <Content>
-            <RelationType>{relation.relationType}</RelationType>
+            <RelationType>{getSeasonLabel(relation)}</RelationType>
             <SeasonName>
               {relation.title.english ||
                 relation.title.romaji ||
@@ -124,6 +144,8 @@ export const Seasons: React.FC<{ relations: Relation[] }> = ({ relations }) => {
             </SeasonName>
           </Content>
         </SeasonCard>
+          );
+        })()
       ))}
     </SeasonCardContainer>
   );

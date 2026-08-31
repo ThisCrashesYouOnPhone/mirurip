@@ -23,6 +23,7 @@
   --global-border-radius: 0.3rem;
   --primary-accent: #8080cf;
   --primary-accent-bg: #595991;
+  --title-color: #111;
   --logo-text-transparent: url('/src/assets/miruro-text-transparent-black.webp');
   --logo-transparent: url('/src/assets/miruro-transparent-black.webp');
   --ongoing-dot-color: #aaff00;
@@ -56,4 +57,5 @@
   --global-shadow: rgba(255, 255, 255, 0.08);
   --logo-text-transparent: url('/src/assets/miruro-text-transparent-white.webp');
   --logo-transparent: url('/src/assets/miruro-transparent-white.webp');
+  --title-color: #e8e8e8;
 }

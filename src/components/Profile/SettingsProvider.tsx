@@ -5,8 +5,8 @@ import React, {
   useEffect,
   ReactNode,
 } from 'react';
+import { safeLocalStorageGet, safeLocalStorageSet } from '../../client/safeStorage';
 
-// Define the type for the context state
 interface SettingsContextType {
   settings: {
     autoSkip: boolean;
@@ -14,11 +14,11 @@ interface SettingsContextType {
     autoNext: boolean;
     defaultLanguage: string;
     defaultServers: string;
+    customBackendUrl: string;
   };
   setSettings: (settings: Partial<SettingsContextType['settings']>) => void;
 }
 
-// Create the context with a default value
 const SettingsContext = createContext<SettingsContextType | undefined>(
   undefined,
 );
@@ -39,21 +39,21 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({
   children,
 }) => {
   const [settings, setSettingsState] = useState({
-    autoSkip: localStorage.getItem('autoSkip') === 'true',
-    autoPlay: localStorage.getItem('autoPlay') === 'true',
-    autoNext: localStorage.getItem('autoNext') === 'true',
-    defaultLanguage: localStorage.getItem('defaultLanguage') || 'sub',
-    defaultServers: localStorage.getItem('defaultServers') || 'default',
+    autoSkip: safeLocalStorageGet('autoSkip', 'false') === 'true',
+    autoPlay: safeLocalStorageGet('autoPlay', 'true') === 'true',
+    autoNext: safeLocalStorageGet('autoNext', 'true') === 'true',
+    defaultLanguage: safeLocalStorageGet('defaultLanguage', 'sub'),
+    defaultServers: safeLocalStorageGet('defaultServers', 'default'),
+    customBackendUrl: safeLocalStorageGet('custom_backend_url', ''),
   });
 
   useEffect(() => {
-    // This useEffect will ensure that any changes to the settings state are reflected in local storage
-    // console.log('Settings updated:', settings);
-    localStorage.setItem('autoSkip', settings.autoSkip ? 'true' : 'false');
-    localStorage.setItem('autoPlay', settings.autoPlay ? 'true' : 'false');
-    localStorage.setItem('autoNext', settings.autoNext ? 'true' : 'false');
-    localStorage.setItem('defaultLanguage', settings.defaultLanguage);
-    localStorage.setItem('defaultServers', settings.defaultServers);
+    safeLocalStorageSet('autoSkip', settings.autoSkip ? 'true' : 'false');
+    safeLocalStorageSet('autoPlay', settings.autoPlay ? 'true' : 'false');
+    safeLocalStorageSet('autoNext', settings.autoNext ? 'true' : 'false');
+    safeLocalStorageSet('defaultLanguage', settings.defaultLanguage);
+    safeLocalStorageSet('defaultServers', settings.defaultServers);
+    safeLocalStorageSet('custom_backend_url', settings.customBackendUrl);
   }, [settings]);
 
   const setSettings = (

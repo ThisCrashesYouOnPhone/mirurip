@@ -45,7 +45,7 @@ const statusLabels = {
   DROPPED: 'Dropped',
 };
 
-const apiStatusToUserFriendly = {
+const apiStatusToUserFriendly: Record<string, string> = {
   FINISHED: 'Completed',
   RELEASING: 'Ongoing',
   NOT_YET_RELEASED: 'Not yet aired',
@@ -59,18 +59,16 @@ export const WatchingAnilist = () => {
     localStorage.getItem('selectedStatus') || 'CURRENT',
   );
 
-  useEffect(() => {
-    if (isLoggedIn && userData) {
-      console.log('User is logged in, username:', userData.name);
-    } else {
-      console.log('User is not logged in or userData is not available');
-    }
-  }, [isLoggedIn, userData]);
-
-  const { animeList, loading, error } = useUserAnimeList(
-    userData?.name,
+  const { animeList, loading, error, refetch } = useUserAnimeList(
+    userData?.name || '',
     selectedStatus as MediaListStatus,
   );
+
+  useEffect(() => {
+    const refreshList = () => { void refetch(); };
+    window.addEventListener('aniListSync', refreshList);
+    return () => window.removeEventListener('aniListSync', refreshList);
+  }, [refetch]);
 
   if (!isLoggedIn)
     return <NotLoggedIn>Please Log in to view your AniList.</NotLoggedIn>;
@@ -82,20 +80,20 @@ export const WatchingAnilist = () => {
       </NoEntriesMessage>
     );
 
-  const animeData = animeList.lists.flatMap((list) =>
-    list.entries.map((entry) => ({
-      id: entry.media.id,
-      image: entry.media.coverImage.large,
+  const animeData = (animeList?.lists || []).flatMap((list: any) =>
+    (list.entries || []).map((entry: any) => ({
+      id: entry.media.id?.toString() || '',
+      image: entry.media.coverImage?.large || '',
       title: {
-        romaji: entry.media.title.romaji,
-        english: entry.media.title.english || entry.media.title.romaji,
+        romaji: entry.media.title?.romaji || '',
+        english: entry.media.title?.english || entry.media.title?.romaji || '',
       },
       status: apiStatusToUserFriendly[entry.media.status] || 'Unknown',
-      rating: entry.media.averageScore,
-      releaseDate: entry.media.startDate.year,
-      totalEpisodes: entry.media.episodes,
-      color: entry.media.coverImage.color,
-      type: entry.media.format,
+      rating: entry.media.averageScore ? entry.media.averageScore / 10 : 0,
+      releaseDate: entry.media.startDate?.year || 0,
+      totalEpisodes: entry.media.episodes || 0,
+      color: entry.media.coverImage?.color || '#8080cf',
+      type: entry.media.format || 'TV',
     })),
   );
 

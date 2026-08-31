@@ -1,60 +1,104 @@
 import { useEffect, useState } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import styled from 'styled-components';
+import {
+  safeLocalStorageGet,
+  safeLocalStorageRemove,
+  safeLocalStorageSet,
+} from '../client/safeStorage';
+import { isOAuthStateValid, parseOAuthCallback } from '../client/oauth';
 
 const Message = styled.div`
   text-align: center;
   margin-top: 5rem;
   font-size: 1.25rem;
   font-weight: bold;
+  color: var(--global-text);
 `;
 
 const Callback = () => {
-  const location = useLocation();
   const navigate = useNavigate();
-  const [errorMessage, setErrorMessage] = useState(''); // State to store the error message
+  const [errorMessage, setErrorMessage] = useState('');
 
   useEffect(() => {
-    const queryParams = new URLSearchParams(location.search);
-    const error = queryParams.get('error');
-    const code = queryParams.get('code');
-    const PLATFORM = import.meta.env.VITE_DEPLOY_PLATFORM; // This will be set as 'VERCEL' or 'CLOUDFLARE'
+    const queryParams = new URLSearchParams(window.location.search);
+    const { accessToken, error, errorDescription, returnedState } =
+      parseOAuthCallback(window.location.hash, window.location.search);
+    const expectedState = safeLocalStorageGet('csrf_token');
 
-    // Check if there was an access denied error
-    if (error === 'access_denied') {
-      setErrorMessage(
-        'Authorization revoked. Please click "Authorize" to grant access.',
-      );
-      navigate('/callback', { replace: true });
+    const finishLogin = () => {
+      safeLocalStorageRemove('csrf_token');
+      window.dispatchEvent(new CustomEvent('authUpdate'));
+      navigate('/profile', { replace: true });
+    };
+
+    // AniList's implicit grant returns the token in the URL fragment. The
+    // fragment is never sent to the server, which keeps this compatible with
+    // Cloudflare Pages and avoids a client-side authorization-code exchange.
+    if (accessToken) {
+      // AniList returns state when it is supplied. Reject a mismatched value;
+      // accepting a missing value keeps compatibility with older responses.
+      if (!isOAuthStateValid(expectedState, returnedState)) {
+        safeLocalStorageRemove('csrf_token');
+        setErrorMessage('AniList login could not be verified. Please try again.');
+        return;
+      }
+
+      safeLocalStorageSet('accessToken', accessToken);
+      finishLogin();
       return;
     }
 
-    // Determine the endpoint based on the platform
-    const apiEndpoint =
-      PLATFORM === 'VERCEL' ? '/api/exchange-token' : '/exchange-token';
+    if (error === 'access_denied') {
+      setErrorMessage('Authorization revoked. Please click "Authorize" to grant access.');
+      return;
+    }
+
+    if (error) {
+      setErrorMessage(errorDescription || `AniList login failed: ${error}`);
+      return;
+    }
+
+    // Authorization-code exchange is intentionally opt-in. It requires a
+    // server-side client secret and is not part of the static Pages flow.
+    const code = queryParams.get('code');
+    const codeFlowEnabled = import.meta.env.VITE_ENABLE_AUTH_CODE_FLOW === 'true';
 
     if (code) {
-      axios
-        .post(apiEndpoint, { code })
-        .then((response) => {
-          // Store the access token in localStorage
-          localStorage.setItem('accessToken', response.data.accessToken);
-          // After setting the token, navigate and force a refresh
-          navigate('/profile');
-          window.location.reload(); // Force a full page reload to refresh state
-        })
-        .catch((error) => {
-          const errMsg = error.response?.data?.error || 'Error logging in :(';
-          console.error('Error in token exchange:', errMsg);
-          setErrorMessage(errMsg); // Store the error message
-          navigate('/callback', { replace: true });
-        });
+      if (!codeFlowEnabled) {
+        setErrorMessage('This deployment uses browser login. Please start again from the profile page.');
+        return;
+      }
+
+      const endpoints = [
+        '/api/exchange-token',
+        '/.netlify/functions/exchange-token',
+        '/exchange-token',
+      ];
+
+      const tryExchange = async () => {
+        for (const endpoint of endpoints) {
+          try {
+            const response = await axios.post(endpoint, { code });
+            if (response.data?.accessToken) {
+              safeLocalStorageSet('accessToken', response.data.accessToken);
+              finishLogin();
+              return;
+            }
+          } catch {
+            // Try next endpoint fallback
+          }
+        }
+        setErrorMessage('Failed to exchange authorization code. Please try logging in again.');
+      };
+
+      void tryExchange();
     }
-  }, [location, navigate]);
+  }, [navigate]);
 
   return (
-    <Message>{errorMessage ? `${errorMessage}` : 'Logging in...'}</Message>
+    <Message>{errorMessage ? `${errorMessage}` : 'Logging in to AniList...'}</Message>
   );
 };
 

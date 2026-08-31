@@ -1,4 +1,4 @@
-import { FC } from 'react';
+import { FC, useMemo } from 'react';
 import styled from 'styled-components';
 import { FaPlay } from 'react-icons/fa';
 import { Swiper, SwiperSlide } from 'swiper/react';
@@ -15,6 +15,7 @@ const StyledSwiperContainer = styled(Swiper)`
   height: 24rem;
   border-radius: var(--global-border-radius);
   cursor: grab;
+  transform: translateZ(0);
 
   @media (max-width: 1000px) {
     height: 20rem;
@@ -29,7 +30,6 @@ const StyledSwiperSlide = styled(SwiperSlide)`
   display: flex;
   justify-content: flex-start;
   align-items: center;
-  animation: fadeIn 0.4s ease-in-out forwards;
 `;
 
 const DarkOverlay = styled.div`
@@ -41,7 +41,7 @@ const DarkOverlay = styled.div`
   bottom: 0;
   border-radius: var(--global-border-radius);
   z-index: 1;
-  background: linear-gradient(45deg, rgba(8, 8, 8, 1) 0%, transparent 60%);
+  background: linear-gradient(45deg, rgba(8, 8, 8, 0.95) 0%, rgba(8, 8, 8, 0.6) 40%, transparent 80%);
 `;
 
 const SlideImageWrapper = styled.div`
@@ -73,8 +73,6 @@ const SlideContent = styled.div`
   z-index: 5;
   max-width: 60%;
 
-  animation: slideUp 0.4s ease-in-out;
-
   @media (max-width: 1000px) {
     left: 1rem;
     bottom: 1.5rem;
@@ -82,8 +80,8 @@ const SlideContent = styled.div`
 `;
 
 const SlideTitle = styled.h2`
-  color: var(--white, #fff);
-  font-size: clamp(1.2rem, 3vw, 2.5rem);
+  color: #fff;
+  font-size: clamp(1.2rem, 3vw, 2.2rem);
   margin: auto;
   max-width: 100%;
   overflow: hidden;
@@ -100,7 +98,7 @@ const SlideInfo = styled.div`
   gap: 0.75rem;
   color: #ffffff;
   margin: auto;
-  margin-top: 0;
+  margin-top: 0.25rem;
   max-width: 100%;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -117,37 +115,37 @@ const SlideInfo = styled.div`
 
 const SlideInfoItem = styled.p`
   display: flex;
+  align-items: center;
   gap: 0.25rem;
+  margin: 0;
 `;
 
 const SlideDescription = styled.p<{
   $maxLines: boolean;
 }>`
-  color: var(--white, #ccc);
+  color: #ddd;
   background: transparent;
-  font-size: clamp(0.9rem, 1.5vw, 0.9rem);
-  line-height: 1.2;
-  max-width: 60%;
-  max-height: 5rem;
+  font-size: clamp(0.85rem, 1.3vw, 0.9rem);
+  line-height: 1.3;
+  max-width: 65%;
+  max-height: 4.5rem;
   overflow: hidden;
+  margin: 0.4rem 0 0 0;
+  display: -webkit-box;
   -webkit-line-clamp: 3;
-  margin: 0;
+  -webkit-box-orient: vertical;
 
   @media (max-width: 1000px) {
-    line-height: 1.2;
-    max-width: 70%;
-    font-size: clamp(0.8rem, 1.2vw, 0.9rem);
+    max-width: 75%;
     max-height: 3rem;
+    -webkit-line-clamp: 2;
   }
 
   @media (max-width: 500px) {
     max-width: 100%;
-    font-size: clamp(0.7rem, 1vw, 0.8rem);
     max-height: 2.5rem;
+    -webkit-line-clamp: 2;
   }
-
-  /* Add overflow-y: auto if the content exceeds max height */
-  overflow-y: ${({ $maxLines }) => ($maxLines ? 'auto' : 'hidden')};
 `;
 
 const PlayButtonWrapper = styled.div`
@@ -156,8 +154,8 @@ const PlayButtonWrapper = styled.div`
   bottom: 1.5rem;
   z-index: 5;
   display: flex;
-  align-items: center; /* Center vertically */
-  justify-content: center; /* Center horizontally */
+  align-items: center;
+  justify-content: center;
 
   @media (max-width: 1000px) {
     right: 1.5rem;
@@ -168,34 +166,32 @@ const PlayButtonWrapper = styled.div`
 const PlayButton = styled.button`
   display: flex;
   gap: 0.5rem;
-  background-color: var(--global-button-bg);
-  color: var(--global-text);
+  background-color: var(--primary-accent, #8080cf);
+  color: #fff;
   border: none;
-  border-radius: 0.4rem;
-  font-size: 1rem; /* Increased font size */
+  border-radius: var(--global-border-radius);
+  font-size: 0.95rem;
   font-weight: bold;
   cursor: pointer;
-  transition: 0.2s ease;
-  padding: 1.2rem 2rem; /* Increased padding */
-  display: flex;
+  padding: 0.9rem 1.8rem;
   align-items: center;
+  transition: transform 0.15s ease, filter 0.15s ease;
 
   &:hover,
   &:active,
   &:focus {
-    background-color: var(--primary-accent-bg);
-    transform: scale(1.05); /* Slightly larger scale on hover */
+    filter: brightness(1.1);
+    transform: scale(1.03);
   }
 
   @media (max-width: 1000px) {
-    padding: 1rem 2rem; /* Adjusted for medium-sized devices */
+    padding: 0.8rem 1.5rem;
   }
 
   @media (max-width: 500px) {
     border-radius: 50%;
-    padding: 1.4rem; /* Adjusted for small devices */
-    padding-right: 1.5rem;
-    font-size: 1.25rem; /* Adjusted font size for small devices */
+    padding: 1.2rem;
+    font-size: 1.1rem;
     span {
       display: none;
     }
@@ -217,7 +213,6 @@ const PaginationStyle = styled.div`
   }
 `;
 
-// Adjust the Carousel component to use correctly typed props and state
 interface HomeCarouselProps {
   data: Anime[];
   loading: boolean;
@@ -235,110 +230,84 @@ export const HomeCarousel: FC<HomeCarouselProps> = ({
     navigate(`/watch/${id}`);
   };
 
-  const truncateTitle = (title: string, maxLength: number = 40): string => {
-    return title.length > maxLength
-      ? `${title.substring(0, maxLength)}...`
-      : title;
+  const truncateTitle = (title?: string, maxLength: number = 40): string => {
+    if (!title) return 'Anime';
+    return title.length > maxLength ? `${title.substring(0, maxLength)}...` : title;
   };
 
-  const validData = data.filter(
-    (item) =>
-      item.title &&
-      item.title.english &&
-      item.description &&
-      item.cover !== item.image,
-  );
-
-  // const formatGenres = (genres: string[]): string => genres.join(', ');
+  const validData = useMemo(() => {
+    return data.filter((item) => item && item.id && (item.title?.english || item.title?.romaji));
+  }, [data]);
 
   return (
     <>
-      {loading || error ? (
+      {loading || error || validData.length === 0 ? (
         <SkeletonSlide />
       ) : (
         <PaginationStyle>
           <StyledSwiperContainer
             spaceBetween={30}
             slidesPerView={1}
-            loop={true}
+            loop={validData.length > 1}
             autoplay={{
               delay: 5000,
               disableOnInteraction: false,
             }}
-            navigation={{
-              nextEl: '.swiper-button-next',
-              prevEl: '.swiper-button-prev',
-            }}
             pagination={{
-              el: '.swiper-pagination',
               clickable: true,
               dynamicBullets: true,
-              type: 'bullets',
             }}
-            freeMode={false}
-            virtual={true}
             grabCursor={true}
-            keyboard={true}
             centeredSlides={true}
           >
-            {validData.map(
-              ({
-                id,
-                cover,
-                title,
-                description,
-                // status,
-                rating,
-                // genres,
-                totalEpisodes,
-                duration,
-                type,
-              }) => (
-                <StyledSwiperSlide
-                  key={id}
-                  title={title.english || title.romaji}
-                >
+            {validData.map((anime, index) => {
+              const title = anime.title?.english || anime.title?.romaji || anime.title?.userPreferred || 'Anime';
+              const banner = anime.cover || anime.image;
+              const cleanDesc = (anime.description || '').replace(/<[^>]*>?/gm, '');
+
+              return (
+                <StyledSwiperSlide key={anime.id} title={title}>
                   <SlideImageWrapper>
                     <SlideImage
-                      src={cover}
-                      alt={title.english || title.romaji + ' Banner Image'}
-                      loading='eager'
+                      src={banner}
+                      alt={`${title} Banner`}
+                      loading={index === 0 ? 'eager' : 'lazy'}
+                      decoding='async'
                     />
                     <ContentWrapper>
                       <SlideContent>
-                        <SlideTitle>{truncateTitle(title.english)}</SlideTitle>
+                        <SlideTitle>{truncateTitle(title)}</SlideTitle>
                         <SlideInfo>
-                          {type && <SlideInfoItem>{type}</SlideInfoItem>}
-                          {totalEpisodes && (
+                          {anime.type && <SlideInfoItem>{anime.type}</SlideInfoItem>}
+                          {anime.totalEpisodes ? (
                             <SlideInfoItem>
                               <TbCards />
-                              {totalEpisodes}
+                              {anime.totalEpisodes}
                             </SlideInfoItem>
-                          )}
-                          {rating && (
+                          ) : null}
+                          {anime.rating ? (
                             <SlideInfoItem>
                               <FaStar />
-                              {rating}
+                              {typeof anime.rating === 'number' ? anime.rating.toFixed(1) : anime.rating}
                             </SlideInfoItem>
-                          )}
-                          {duration && (
+                          ) : null}
+                          {anime.duration ? (
                             <SlideInfoItem>
                               <FaClock />
-                              {duration}mins
+                              {anime.duration}m
                             </SlideInfoItem>
-                          )}
+                          ) : null}
                         </SlideInfo>
-                        <SlideDescription
-                          dangerouslySetInnerHTML={{ __html: description }}
-                          $maxLines={description.length > 200}
-                        />
+                        {cleanDesc && (
+                          <SlideDescription $maxLines={cleanDesc.length > 200}>
+                            {cleanDesc}
+                          </SlideDescription>
+                        )}
                       </SlideContent>
                       <PlayButtonWrapper>
                         <PlayButton
-                          onClick={() => handlePlayButtonClick(id)}
-                          title={
-                            'Watch ' + (title.english || title.romaji) + ' Now'
-                          }
+                          onClick={() => handlePlayButtonClick(anime.id)}
+                          title={`Watch ${title} Now`}
                         >
                           <PlayIcon />
                           <span>WATCH NOW</span>
@@ -348,9 +317,8 @@ export const HomeCarousel: FC<HomeCarouselProps> = ({
                     <DarkOverlay />
                   </SlideImageWrapper>
                 </StyledSwiperSlide>
-              ),
-            )}
-            <div className='swiper-pagination'></div>
+              );
+            })}
           </StyledSwiperContainer>
         </PaginationStyle>
       )}

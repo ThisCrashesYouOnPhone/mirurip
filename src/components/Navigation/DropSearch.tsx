@@ -1,7 +1,7 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect } from 'react';
 import styled from 'styled-components';
 import { useNavigate } from 'react-router-dom';
-import { Anime } from '../../index';
+import type { Anime } from '../../hooks/animeInterface';
 import { FaArrowRight, FaStar } from 'react-icons/fa';
 import { TbCards } from 'react-icons/tb';
 import { BsArrowUpSquare, BsArrowDownSquare } from 'react-icons/bs';
@@ -10,20 +10,21 @@ import { PiKeyReturn } from 'react-icons/pi';
 const Container = styled.div<{ $isVisible: boolean; width: number }>`
   display: ${({ $isVisible }) => ($isVisible ? 'block' : 'none')};
   position: absolute;
-  z-index: -1;
-  top: 1rem;
-  width: ${({ width }) => `${width}px`};
-  margin-left: -0.6rem;
+  z-index: 1000;
+  top: calc(100% + 0.25rem);
+  left: 0;
+  width: ${({ width }) => (width > 0 ? `${width}px` : '100%')};
+  margin-left: 0;
   overflow-y: auto;
   background-color: var(--global-div);
   border-top: none;
   border-radius: var(--global-border-radius);
-  padding-top: 2.5rem;
+  padding-top: 0;
   animation: dropDown 0.5s ease-in-out;
 
   @media (max-width: 500px) {
-    top: 4rem;
-    width: 96.4%;
+    top: calc(100% + 0.25rem);
+    width: 100%;
   }
 
   scrollbar-width: none;
@@ -139,24 +140,6 @@ export const DropDownSearch: React.FC<Props> = ({
   containerWidth,
 }) => {
   const navigate = useNavigate();
-  const ref = useRef<HTMLDivElement>(null);
-
-  const handleClickOutside = (event: MouseEvent) => {
-    if (ref.current && !ref.current.contains(event.target as Node)) {
-      onClose();
-    }
-  };
-
-  useEffect(() => {
-    if (isVisible) {
-      document.addEventListener('mousedown', handleClickOutside);
-    } else {
-      document.removeEventListener('mousedown', handleClickOutside);
-    }
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, [isVisible, onClose]);
 
   useEffect(() => {
     if (!isVisible) {
@@ -199,7 +182,6 @@ export const DropDownSearch: React.FC<Props> = ({
     <Container
       width={containerWidth}
       $isVisible={isVisible && searchResults.length > 0}
-      ref={ref}
       role='list'
     >
       {searchResults.map((result, index) => (
@@ -229,7 +211,7 @@ export const DropDownSearch: React.FC<Props> = ({
               <span>{result.totalEpisodes || 'N/A'}&nbsp;</span>
               <FaStar color='#' />
               <span>&nbsp;</span>
-              <span>{result.rating ? result.rating / 10 : 'N/A'}&nbsp;</span>
+              <span>{result.rating ? result.rating.toFixed(1) : 'N/A'}&nbsp;</span>
               <span>&nbsp;&nbsp;</span>
             </Details>
           </div>

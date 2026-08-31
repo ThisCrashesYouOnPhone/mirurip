@@ -1,24 +1,22 @@
 import { useState, useEffect } from 'react';
 import styled from 'styled-components';
+import { HomeCarousel } from '../components/Home/HomeCarousel';
+import { HomeSideBar } from '../components/Home/HomeSideBar';
+import { EpisodeCard } from '../components/Home/EpisodeCard';
+import { CardGrid, StyledCardGrid } from '../components/Cards/CardGrid';
+import { SkeletonSlide, SkeletonCard } from '../components/Skeletons/Skeletons';
 import {
-  HomeCarousel,
-  CardGrid,
-  StyledCardGrid,
-  SkeletonSlide,
-  SkeletonCard,
   fetchTrendingAnime,
   fetchPopularAnime,
   fetchTopAnime,
   fetchTopAiringAnime,
   fetchUpcomingSeasons,
-  HomeSideBar,
-  EpisodeCard,
   getNextSeason,
-  time,
-  Paging,
-  Anime,
-  Episode,
+  safeLocalStorageGetJson,
+  safeLocalStorageSet,
+  safeLocalStorageRemove,
 } from '../index';
+import type { Paging, Anime, Episode } from '../hooks/animeInterface';
 
 const SimpleLayout = styled.div`
   gap: 1rem;
@@ -62,9 +60,8 @@ const Tab = styled.div<{ $isActive: boolean }>`
   overflow: hidden;
   margin: 0;
   font-size: 0.8rem;
-  padding: 1rem;
-
-  transition: background-color 0.3s ease;
+  padding: 0.8rem 1.2rem;
+  transition: background-color 0.2s ease;
 
   &:hover,
   &:active,
@@ -73,7 +70,7 @@ const Tab = styled.div<{ $isActive: boolean }>`
   }
 
   @media (max-width: 500px) {
-    padding: 0.5rem;
+    padding: 0.5rem 0.8rem;
   }
 `;
 
@@ -97,22 +94,16 @@ const ErrorMessage = styled.div`
 `;
 
 const Home = () => {
-  const [itemsCount, setItemsCount] = useState(
-    window.innerWidth > 500 ? 24 : 15,
+  const [itemsCount, setItemsCount] = useState(() =>
+    typeof window !== 'undefined' && window.innerWidth > 500 ? 24 : 15,
   );
 
-  // Reduced active time to 5mins
   const [activeTab, setActiveTab] = useState(() => {
-    const time = Date.now();
-    const savedData = localStorage.getItem('home tab');
-    if (savedData) {
-      const { tab, timestamp } = JSON.parse(savedData);
-      if (time - timestamp < 300000) {
-        return tab;
-      } else {
-        localStorage.removeItem('home tab');
-      }
+    const savedData = safeLocalStorageGetJson<{ tab: string; timestamp: number } | null>('home tab', null);
+    if (savedData && Date.now() - savedData.timestamp < 300000) {
+      return savedData.tab;
     }
+    safeLocalStorageRemove('home tab');
     return 'trending';
   });
 
@@ -139,75 +130,93 @@ const Home = () => {
     };
 
     window.addEventListener('resize', handleResize);
-    handleResize();
-
-    return () => {
-      window.removeEventListener('resize', handleResize);
-    };
+    return () => window.removeEventListener('resize', handleResize);
   }, []);
 
   useEffect(() => {
-    const fetchWatchedEpisodes = () => {
-      const watchedEpisodesData = localStorage.getItem('watched-episodes');
-      if (watchedEpisodesData) {
-        const allEpisodes = JSON.parse(watchedEpisodesData);
-        const latestEpisodes: Episode[] = [];
-        Object.keys(allEpisodes).forEach((animeId) => {
-          const episodes = allEpisodes[animeId];
-          const latestEpisode = episodes[episodes.length - 1];
-          latestEpisodes.push(latestEpisode);
-        });
-        setState((prevState) => ({
-          ...prevState,
-          watchedEpisodes: latestEpisodes,
-        }));
+    const allEpisodes = safeLocalStorageGetJson<Record<string, Episode[]>>('watched-episodes', {});
+    const latestEpisodes: Episode[] = [];
+    Object.keys(allEpisodes).forEach((animeId) => {
+      const episodes = allEpisodes[animeId];
+      if (Array.isArray(episodes) && episodes.length > 0) {
+        latestEpisodes.push(episodes[episodes.length - 1]);
       }
-    };
-
-    fetchWatchedEpisodes();
+    });
+    setState((prevState) => ({
+      ...prevState,
+      watchedEpisodes: latestEpisodes,
+    }));
   }, []);
 
   useEffect(() => {
-    const fetchCount = Math.ceil(itemsCount * 1.4);
+    // Request only what the page can display. The previous 1.4 multiplier
+    // made the first view wait on dozens of unnecessary AniList records.
+    const fetchCount = itemsCount;
+    let cancelled = false;
     const fetchData = async () => {
+      setState((prevState) => ({
+        ...prevState,
+        error: null,
+        loading: { trending: true, popular: true, topRated: true, topAiring: true, Upcoming: true },
+      }));
+
+      // Trending is the critical above-the-fold request. Render it as soon as
+      // it arrives, then load secondary shelves without blocking the first view.
       try {
-        setState((prevState) => ({ ...prevState, error: null }));
-        const [trending, popular, topRated, topAiring, Upcoming] =
-          await Promise.all([
-            fetchTrendingAnime(1, fetchCount),
-            fetchPopularAnime(1, fetchCount),
-            fetchTopAnime(1, fetchCount),
-            fetchTopAiringAnime(1, 6),
-            fetchUpcomingSeasons(1, 6),
-          ]);
-        setState((prevState) => ({
-          ...prevState,
-          trendingAnime: filterAndTrimAnime(trending),
-          popularAnime: filterAndTrimAnime(popular),
-          topAnime: filterAndTrimAnime(topRated),
-          topAiring: filterAndTrimAnime(topAiring),
-          Upcoming: filterAndTrimAnime(Upcoming),
-        }));
-      } catch (fetchError) {
-        setState((prevState) => ({
-          ...prevState,
-          error: 'An unexpected error occurred',
-        }));
-      } finally {
-        setState((prevState) => ({
-          ...prevState,
-          loading: {
-            trending: false,
-            popular: false,
-            topRated: false,
-            topAiring: false,
-            Upcoming: false,
-          },
-        }));
+        const trending = await fetchTrendingAnime(1, fetchCount);
+        if (!cancelled) {
+          setState((prevState) => ({
+            ...prevState,
+            trendingAnime: filterAndTrimAnime(trending),
+            loading: { ...prevState.loading, trending: false },
+          }));
+        }
+      } catch {
+        if (!cancelled) {
+          setState((prevState) => ({
+            ...prevState,
+            error: 'An unexpected error occurred while fetching anime listings.',
+            loading: { ...prevState.loading, trending: false },
+          }));
+        }
       }
+
+      const secondaryRequests = [
+        ['popularAnime', fetchPopularAnime(1, fetchCount), 'popular'],
+        ['topAnime', fetchTopAnime(1, fetchCount), 'topRated'],
+        ['topAiring', fetchTopAiringAnime(1, 6), 'topAiring'],
+        ['Upcoming', fetchUpcomingSeasons(1, 6), 'Upcoming'],
+      ] as const;
+
+      const secondaryResults = await Promise.allSettled(secondaryRequests.map(([, request]) => request));
+      if (cancelled) return;
+      secondaryResults.forEach((result, index) => {
+        const [field, , loadingKey] = secondaryRequests[index];
+        if (result.status === 'fulfilled') {
+          setState((prevState) => ({
+            ...prevState,
+            [field]: filterAndTrimAnime(result.value),
+            loading: { ...prevState.loading, [loadingKey]: false },
+          }));
+        } else {
+          setState((prevState) => ({
+            ...prevState,
+            error: 'Some anime listings could not be loaded.',
+            loading: { ...prevState.loading, [loadingKey]: false },
+          }));
+        }
+      });
+      setState((prevState) => ({
+        ...prevState,
+        loading: { ...prevState.loading, popular: false, topRated: false, topAiring: false, Upcoming: false },
+      }));
+
     };
 
-    fetchData();
+    void fetchData();
+    return () => {
+      cancelled = true;
+    };
   }, [itemsCount]);
 
   useEffect(() => {
@@ -215,19 +224,11 @@ const Home = () => {
   }, [activeTab]);
 
   useEffect(() => {
-    const tabData = JSON.stringify({ tab: activeTab, timestamp: time });
-    localStorage.setItem('home tab', tabData);
+    safeLocalStorageSet('home tab', JSON.stringify({ tab: activeTab, timestamp: Date.now() }));
   }, [activeTab]);
 
   const filterAndTrimAnime = (animeList: Paging) =>
-    animeList.results
-      /*       .filter(
-              (anime: Anime) =>
-                anime.totalEpisodes !== null &&
-                anime.duration !== null &&
-                anime.releaseDate !== null,
-            ) */
-      .slice(0, itemsCount);
+    (animeList?.results || []).slice(0, itemsCount);
 
   const renderCardGrid = (
     animeData: Anime[],

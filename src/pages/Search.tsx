@@ -1,14 +1,11 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import styled from 'styled-components';
 import { useSearchParams } from 'react-router-dom';
-import {
-  SearchFilters,
-  CardGrid,
-  StyledCardGrid,
-  fetchAdvancedSearch,
-  SkeletonCard,
-} from '../index';
-import { Paging } from '../index';
+import { SearchFilters } from '../components/Navigation/SearchFilters';
+import { CardGrid, StyledCardGrid } from '../components/Cards/CardGrid';
+import { SkeletonCard } from '../components/Skeletons/Skeletons';
+import { fetchAdvancedSearch } from '../hooks/useApi';
+import type { Anime } from '../hooks/animeInterface';
 
 const Container = styled.div`
   display: flex;
@@ -25,10 +22,9 @@ const Container = styled.div`
 const Search = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const sortParam = searchParams.get('sort');
-  // Directly initialize state from URL parameters
   const initialQuery = searchParams.get('query') || '';
-  // Adjusting initialization to ensure non-null values
-  let initialSortDirection: 'DESC' | 'ASC' = 'DESC'; // Default to 'DESC'
+
+  let initialSortDirection: 'DESC' | 'ASC' = 'DESC';
   if (sortParam) {
     initialSortDirection = sortParam.endsWith('_DESC') ? 'DESC' : 'ASC';
   }
@@ -79,8 +75,7 @@ const Search = () => {
     initialSortDirection,
   );
 
-  //Other logic
-  const [animeData, setAnimeData] = useState<Paging[]>([]);
+  const [animeData, setAnimeData] = useState<Anime[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [hasNextPage, setHasNextPage] = useState<boolean>(false);
   const [page, setPage] = useState<number>(1);
@@ -88,7 +83,7 @@ const Search = () => {
 
   useEffect(() => {
     const previousTitle = document.title;
-    document.title = `${query} | Search Results`;
+    document.title = query ? `${query} | Search Results` : 'Search Anime | Miruro';
     return () => {
       document.title = previousTitle;
     };
@@ -96,7 +91,7 @@ const Search = () => {
 
   const updateSearchParams = () => {
     const params = new URLSearchParams();
-    params.set('query', query);
+    if (query) params.set('query', query);
     if (selectedGenres.length > 0) {
       params.set('genres', selectedGenres.map((g) => g.value).join(','));
     }
@@ -105,22 +100,19 @@ const Search = () => {
     if (selectedFormat.value) params.set('format', selectedFormat.value);
     if (selectedStatus.value) params.set('status', selectedStatus.value);
     const sortBase = selectedSort.value.replace(/(_DESC|_ASC)$/, '');
-    const sortParam =
-      sortDirection === 'DESC' ? `${sortBase}_DESC` : `${sortBase}_ASC`;
-    params.set('sort', sortParam);
+    const sortValue = sortDirection === 'DESC' ? `${sortBase}_DESC` : `${sortBase}_ASC`;
+    params.set('sort', sortValue);
 
     setSearchParams(params, { replace: true });
   };
 
   useEffect(() => {
     setPage(1);
-
     const scrollToTopWithDelay = () => {
       setTimeout(() => {
         window.scrollTo({ top: 0, behavior: 'smooth' });
-      }, 350);
+      }, 200);
     };
-
     scrollToTopWithDelay();
   }, [
     query,
@@ -138,22 +130,22 @@ const Search = () => {
     const sortBase = selectedSort.value.replace('_DESC', '');
     const sortParam = sortDirection === 'DESC' ? `${sortBase}_DESC` : sortBase;
     try {
-      const fetchedData = await fetchAdvancedSearch(query, page, 17, {
+      const fetchedData = await fetchAdvancedSearch(query, page, 18, {
         genres: selectedGenres.map((g) => g.value),
         year: selectedYear.value,
         season: selectedSeason.value,
         format: selectedFormat.value,
         status: selectedStatus.value,
-        sort: [sortParam], // Ensure this is correctly formatted
+        sort: [sortParam],
       });
-      setAnimeData(
+      setAnimeData((prev) =>
         page === 1
-          ? fetchedData.results
-          : [...animeData, ...fetchedData.results],
+          ? (fetchedData.results as Anime[])
+          : [...prev, ...(fetchedData.results as Anime[])],
       );
       setHasNextPage(fetchedData.hasNextPage);
     } catch (err) {
-      console.error('Error fetching data:', err);
+      console.warn('Error fetching search data:', err);
     } finally {
       setIsLoading(false);
     }
@@ -181,19 +173,16 @@ const Search = () => {
   }, [searchParams]);
 
   useEffect(() => {
-    // Clear existing timeout to ensure no double fetches
     if (delayTimeout.current !== null) clearTimeout(delayTimeout.current);
 
-    // Debounce to minimize fetches during rapid state changes
     delayTimeout.current = window.setTimeout(() => {
       initiateFetchAdvancedSearch();
-    }, 0);
+    }, 50);
 
-    // Cleanup timeout on unmount or before executing a new fetch
     return () => {
       if (delayTimeout.current !== null) clearTimeout(delayTimeout.current);
     };
-  }, [initiateFetchAdvancedSearch]); // Include all dependencies here
+  }, [initiateFetchAdvancedSearch]);
 
   return (
     <Container>
@@ -218,10 +207,9 @@ const Search = () => {
       />
 
       <div>
-        {(isLoading && page === 1) ||
-        (isLoading && page === 1 && animeData.length === 0) ? (
+        {isLoading && page === 1 ? (
           <StyledCardGrid>
-            {Array.from({ length: 17 }).map((_, index) => (
+            {Array.from({ length: 18 }).map((_, index) => (
               <SkeletonCard key={index} />
             ))}
           </StyledCardGrid>
@@ -238,12 +226,13 @@ const Search = () => {
               display: 'flex',
               justifyContent: 'center',
               alignItems: 'center',
-              height: '10vh',
+              height: '15vh',
               fontWeight: 'bold',
-              fontSize: '1.5rem',
+              fontSize: '1.2rem',
+              color: 'var(--global-text)',
             }}
           >
-            No Results
+            No anime found matching your filters.
           </div>
         )}
       </div>

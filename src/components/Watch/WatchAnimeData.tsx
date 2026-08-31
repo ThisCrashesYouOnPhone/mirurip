@@ -539,9 +539,30 @@ export const WatchAnimeData: React.FC<{ animeData: Anime }> = ({
           )}
         </AnimeDataContainer>
       )}
-      {animeData.relations &&
-        animeData.relations.some(
+      {(() => {
+        const seasonRelations = animeData.franchiseSeasons || [
+          {
+            id: animeData.id,
+            malId: animeData.malId,
+            relationType: 'CURRENT',
+            title: animeData.title,
+            status: animeData.status,
+            episodes: animeData.totalEpisodes,
+            image: animeData.image,
+            imageHash: animeData.imageHash,
+            cover: animeData.cover,
+            coverHash: animeData.coverHash,
+            rating: animeData.rating,
+            type: animeData.type,
+            releaseDate: animeData.releaseDate,
+            season: animeData.season,
+            seasonYear: Number(animeData.season?.match(/\d{4}/)?.[0]) || animeData.releaseDate,
+          },
+          ...(animeData.relations || []),
+        ];
+        return seasonRelations.some(
           (relation: any) =>
+            relation.relationType.toUpperCase() === 'CURRENT' ||
             relation.relationType.toUpperCase() === 'PREQUEL' ||
             relation.relationType.toUpperCase() === 'SEQUEL',
         ) && (
@@ -549,15 +570,17 @@ export const WatchAnimeData: React.FC<{ animeData: Anime }> = ({
             <AnimeDataText>
               <p className='Seasons-Sections-Titles'>SEASONS</p>
               <Seasons
-                relations={animeData.relations.filter(
+                relations={seasonRelations.filter(
                   (relation: any) =>
+                    relation.relationType.toUpperCase() === 'CURRENT' ||
                     relation.relationType.toUpperCase() === 'PREQUEL' ||
                     relation.relationType.toUpperCase() === 'SEQUEL',
                 )}
               />
             </AnimeDataText>
           </>
-        )}
+        );
+      })()}
     </>
   );
 };

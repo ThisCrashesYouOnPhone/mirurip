@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom';
 import { TbCards } from 'react-icons/tb';
 import { FaStar } from 'react-icons/fa';
 import { Anime, StatusIndicator } from '../../index';
+import { AvailabilityBadges } from '../shared/AvailabilityBadges';
 
 const Sidebar = styled.div`
   display: flex;
@@ -85,7 +86,7 @@ const Details = styled.p`
   font-size: 0.75rem;
   margin: 0;
   color: rgba(102, 102, 102, 0.75);
-  svg {
+  > svg {
     margin-left: 0.4rem;
   }
 `;
@@ -151,6 +152,7 @@ export const AnimeDataList: React.FC<{ animeData: Anime }> = ({
                             {`${relation.rating} `}
                           </>
                         )}
+                        <AvailabilityBadges animeId={relation.id} title={relation.title.english || relation.title.romaji || relation.title.userPreferred} />
                       </Details>
                     </Info>
                   </Card>
@@ -204,6 +206,7 @@ export const AnimeDataList: React.FC<{ animeData: Anime }> = ({
                             {`${recommendation.rating} `}
                           </>
                         )}
+                        <AvailabilityBadges animeId={recommendation.id} title={recommendation.title.english || recommendation.title.romaji || recommendation.title.userPreferred} />
                       </Details>
                     </Info>
                   </Card>

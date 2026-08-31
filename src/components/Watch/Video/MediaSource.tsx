@@ -16,8 +16,10 @@ interface MediaSourceProps {
   setLanguage: (language: string) => void;
   downloadLink: string;
   episodeId?: string;
+  episodeTitle?: string;
+  episodeAirDate?: string | null;
   airingTime?: string;
-  nextEpisodenumber?: string;
+  nextEpisodenumber?: number;
 }
 
 // Adjust the Container for responsive layout
@@ -56,7 +58,7 @@ const TableCell = styled.td`
 `;
 
 const ButtonWrapper = styled.div`
-  width: 90px; // Or a specific pixel width, if preferred
+  width: 90px;
   display: flex;
   justify-content: center;
   gap: 0.5rem;
@@ -145,10 +147,71 @@ const ResponsiveTableContainer = styled.div`
   background-color: var(--global-div-tr);
   padding: 0.75rem;
   border-radius: var(--global-border-radius);
+  max-width: 100%;
+  overflow-x: auto;
   @media (max-width: 500px) {
     display: block;
+    overflow-x: hidden;
+
+    table,
+    tbody {
+      display: block;
+      width: 100%;
+    }
+
+    tr {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 0.35rem;
+      margin-bottom: 0.5rem;
+    }
+
+    td:first-child {
+      grid-column: 1 / -1;
+      padding: 0.2rem 0;
+    }
+
+    td:not(:first-child) {
+      min-width: 0;
+      padding: 0;
+    }
+
+    ${ButtonWrapper} {
+      width: 100%;
+    }
+
+    ${Button} {
+      width: 100%;
+      min-height: 2.35rem;
+      padding: 0.35rem 0.2rem;
+      font-size: 0.72rem;
+    }
   }
 `;
+
+const SOURCES = [
+  { id: 'anikoto', label: 'AniKoto' },
+  { id: 'anineko', label: 'AniNeko' },
+  { id: 'kaa', label: 'KAA' },
+  { id: 'anizone', label: 'AniZone' },
+];
+
+export const SUBTITLE_MODES = ['hsub', 'ssub', 'dub'] as const;
+export type SubtitleMode = (typeof SUBTITLE_MODES)[number];
+
+export function normalizeSubtitleMode(mode?: string | null): SubtitleMode {
+  if (!mode) return 'ssub';
+  const normalized = mode.toLowerCase();
+  if (normalized === 'hsub' || normalized === 'hardsub' || normalized === 'hard-sub') return 'hsub';
+  if (normalized === 'dub') return 'dub';
+  return 'ssub';
+}
+
+const MODE_META: Record<SubtitleMode, { label: string; icon: React.ReactNode }> = {
+  hsub: { label: 'H-Sub', icon: <FaClosedCaptioning /> },
+  ssub: { label: 'S-Sub', icon: <FaClosedCaptioning /> },
+  dub: { label: 'Dub', icon: <FaMicrophone /> },
+};
 
 const EpisodeInfoColumn = styled.div`
   flex-grow: 1;
@@ -181,6 +244,35 @@ const EpisodeInfoColumn = styled.div`
   }
 `;
 
+const EpisodeMetadata = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.75rem;
+  margin-top: 0.45rem;
+  color: var(--global-text);
+  font-size: 0.82rem;
+  opacity: 0.78;
+
+  span,
+  time {
+    min-width: 0;
+  }
+
+  @media (max-width: 500px) {
+    font-size: 0.75rem;
+  }
+`;
+
+function formatEpisodeAirDate(value?: string | null): string | null {
+  if (!value) return null;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return new Intl.DateTimeFormat(undefined, {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  }).format(date);
+}
+
 export const MediaSource: React.FC<MediaSourceProps> = ({
   sourceType,
   setSourceType,
@@ -188,6 +280,8 @@ export const MediaSource: React.FC<MediaSourceProps> = ({
   setLanguage,
   downloadLink,
   episodeId,
+  episodeTitle,
+  episodeAirDate,
   airingTime,
   nextEpisodenumber,
 }) => {
@@ -218,6 +312,16 @@ export const MediaSource: React.FC<MediaSourceProps> = ({
               <FaShare />
             </ShareButton>
             {isCopied && <p>Copied to clipboard!</p>}
+            {(episodeTitle || episodeAirDate) && (
+              <EpisodeMetadata>
+                {episodeTitle && <span>{episodeTitle}</span>}
+                {formatEpisodeAirDate(episodeAirDate) && (
+                  <time dateTime={episodeAirDate || undefined}>
+                    Released {formatEpisodeAirDate(episodeAirDate)}
+                  </time>
+                )}
+              </EpisodeMetadata>
+            )}
             <br />
             <br />
             <p>If current servers don't work, please try other servers.</p>
@@ -225,7 +329,7 @@ export const MediaSource: React.FC<MediaSourceProps> = ({
         ) : (
           'Loading episode information...'
         )}
-        {airingTime && (
+        {airingTime && nextEpisodenumber && (
           <>
             <p>
               Episode <strong>{nextEpisodenumber}</strong> will air in{' '}
@@ -238,118 +342,28 @@ export const MediaSource: React.FC<MediaSourceProps> = ({
       <ResponsiveTableContainer>
         <Table>
           <tbody>
-            <TableRow>
-              <TableCell>
-                <FaClosedCaptioning /> Sub
-              </TableCell>
-              <TableCell>
-                <ButtonWrapper>
-                  <Button
-                    className={
-                      sourceType === 'default' && language === 'sub'
-                        ? 'active'
-                        : ''
-                    }
-                    onClick={() => {
-                      setSourceType('default');
-                      setLanguage('sub');
-                    }}
-                  >
-                    Default
-                  </Button>
-                </ButtonWrapper>
-              </TableCell>
-              <TableCell>
-                <ButtonWrapper>
-                  <Button
-                    className={
-                      sourceType === 'vidstreaming' && language === 'sub'
-                        ? 'active'
-                        : ''
-                    }
-                    onClick={() => {
-                      setSourceType('vidstreaming');
-                      setLanguage('sub');
-                    }}
-                  >
-                    Vidstream
-                  </Button>
-                </ButtonWrapper>
-              </TableCell>
-              <TableCell>
-                <ButtonWrapper>
-                  <Button
-                    className={
-                      sourceType === 'gogo' && language === 'sub'
-                        ? 'active'
-                        : ''
-                    }
-                    onClick={() => {
-                      setSourceType('gogo');
-                      setLanguage('sub');
-                    }}
-                  >
-                    Gogo
-                  </Button>
-                </ButtonWrapper>
-              </TableCell>
-            </TableRow>
-            <TableRow>
-              <TableCell>
-                <FaMicrophone /> Dub
-              </TableCell>
-              <TableCell>
-                <ButtonWrapper>
-                  <Button
-                    className={
-                      sourceType === 'default' && language === 'dub'
-                        ? 'active'
-                        : ''
-                    }
-                    onClick={() => {
-                      setSourceType('default');
-                      setLanguage('dub');
-                    }}
-                  >
-                    Default
-                  </Button>
-                </ButtonWrapper>
-              </TableCell>
-              <TableCell>
-                <ButtonWrapper>
-                  <Button
-                    className={
-                      sourceType === 'vidstreaming' && language === 'dub'
-                        ? 'active'
-                        : ''
-                    }
-                    onClick={() => {
-                      setSourceType('vidstreaming');
-                      setLanguage('dub');
-                    }}
-                  >
-                    Vidstream
-                  </Button>
-                </ButtonWrapper>
-              </TableCell>
-              <TableCell>
-                <ButtonWrapper>
-                  <Button
-                    className={
-                      sourceType === 'gogo' && language === 'dub'
-                        ? 'active'
-                        : ''
-                    }
-                    onClick={() => {
-                      setSourceType('gogo');
-                      setLanguage('dub');
-                    }}
-                  >
-                    Gogo
-                  </Button>
-                </ButtonWrapper>
-              </TableCell>
-            </TableRow>
+            {SUBTITLE_MODES.map((mode) => (
+              <TableRow key={mode}>
+                <TableCell>
+                  {MODE_META[mode].icon} {MODE_META[mode].label}
+                </TableCell>
+                {SOURCES.map((source) => (
+                  <TableCell key={`${mode}-${source.id}`}>
+                    <ButtonWrapper>
+                      <Button
+                        className={sourceType === source.id && normalizeSubtitleMode(language) === mode ? 'active' : ''}
+                        onClick={() => {
+                          setSourceType(source.id);
+                          setLanguage(mode);
+                        }}
+                      >
+                        {source.label}
+                      </Button>
+                    </ButtonWrapper>
+                  </TableCell>
+                ))}
+              </TableRow>
+            ))}
           </tbody>
         </Table>
       </ResponsiveTableContainer>

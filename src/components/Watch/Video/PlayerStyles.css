@@ -15,6 +15,10 @@
   --video-border-radius: var(--global-border-radius);
   --video-border: none;
 
+  /* Scale captions from the rendered player instead of the browser root.
+     This keeps fullscreen text readable without making small screens huge. */
+  container-type: inline-size;
+
   /* 👉 https://vidstack.io/docs/player/components/layouts/default#css-variables for more. */
 }
 
@@ -38,4 +42,83 @@
 
 .vds-poster {
   object-fit: cover;
+}
+
+/* Keep Vidstack's captions element as a full overlay. Positioning only the
+   cue display below prevents iOS from losing the overlay's dimensions while
+   keeping subtitles above the controls. */
+.vds-captions {
+  background-color: transparent !important;
+  background: none !important;
+  pointer-events: none !important;
+  z-index: 10 !important;
+  position: absolute !important;
+  inset: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  margin: 0 !important;
+}
+
+/* iOS can preserve a subtitle cue's `line`/top placement. Anchor the cue
+   display itself above the control bar so captions cannot render at the top
+   of the video on iPhone or iPad. */
+.player .vds-captions [data-part='cue-display'] {
+  --cue-top: auto !important;
+  --cue-bottom: var(--miruro-caption-bottom, 5.25rem) !important;
+  --cue-left: 0 !important;
+  --cue-right: 0 !important;
+  --cue-width: 100% !important;
+  top: auto !important;
+  bottom: var(--miruro-caption-bottom, 5.25rem) !important;
+  left: 1% !important;
+  right: 1% !important;
+  width: 98% !important;
+}
+
+@media (max-width: 800px) {
+  .player {
+    --miruro-caption-bottom: 4.25rem;
+  }
+}
+
+@media (max-width: 520px) {
+  .player {
+    --miruro-caption-bottom: 3.5rem;
+  }
+}
+
+/* Subtitle cue text bubbles: high readability with proper shadow and gentle bubble background */
+.vds-cue,
+.player .vds-captions [data-part='cue'],
+.player ::cue {
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+  font-size: var(--sub-font-size, clamp(1.2rem, 3.2cqi, 2.5rem)) !important;
+  font-weight: 700 !important;
+  color: #ffffff !important;
+  text-shadow: 0 0 3px #000000, 0 0 6px #000000, 0 2px 4px #000000 !important;
+  background-color: var(--sub-bg, transparent) !important;
+  border-radius: 4px !important;
+  padding: 0.15em 0.4em !important;
+  line-height: 1.35 !important;
+  text-align: center !important;
+  white-space: pre-line !important;
+  display: inline-block !important;
+}
+
+/* FloatingSkipButton entrance animation */
+@keyframes fadeInSlide {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Ensure MediaPlayer container is relatively positioned so the FloatingSkipButton is anchored inside it */
+media-player,
+.player {
+  position: relative !important;
 }

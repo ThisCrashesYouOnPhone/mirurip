@@ -56,6 +56,9 @@ export interface Relation {
   coverHash: string;
   rating: number;
   type: string;
+  releaseDate?: number;
+  season?: string;
+  seasonYear?: number;
 }
 
 export interface Mapping {
@@ -79,6 +82,14 @@ export interface Episode {
   image: string;
   imageHash: string;
   airDate: string | null;
+  airingAt?: number;
+  isReleased?: boolean;
+}
+
+export interface NextAiringEpisode {
+  episode: number;
+  airingAt: number;
+  timeUntilAiring?: number;
 }
 
 export interface Anime {
@@ -124,6 +135,8 @@ export interface Anime {
   artwork: Artwork[];
   episodes: Episode[];
   color: string;
+  nextAiringEpisode?: NextAiringEpisode | null;
+  franchiseSeasons?: Relation[];
 }
 
 export interface Paging {

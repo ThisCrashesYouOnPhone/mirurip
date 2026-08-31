@@ -2,59 +2,112 @@
 @import url('themes.css');
 
 /* Basic Styles for the App */
+html {
+  -webkit-tap-highlight-color: transparent;
+  scroll-behavior: smooth;
+  width: 100%;
+  overflow-x: hidden;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
 body {
   font-family:
     ui-sans-serif,
     system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
     sans-serif,
     Apple Color Emoji,
-    Segoe UI Emoji,
-    Segoe UI Symbol,
-    Noto Color Emoji;
-  margin: 0 auto; /* Center the body content */
-  padding: 4.5rem 1rem 1.5rem; /* Top, Horizontal, Bottom padding */
-  max-width: 105rem; /* Max width to constrain content size */
-  background-color: var(
-    --global-primary-bg
-  ); /* Background color from variable */
-  color: var(--global-text); /* Text color from variable */
-  transition: 0.2s ease; /* Smooth transition for changes */
+    Segoe UI Emoji;
+  margin: 0 auto;
+  padding: 4.5rem 1rem 1.5rem;
+  max-width: 105rem;
+  width: 100%;
+  min-width: 0;
+  overflow-x: hidden;
+  background-color: var(--global-primary-bg);
+  color: var(--global-text);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+#root {
+  width: 100%;
+  min-width: 0;
+  overflow-x: clip;
+}
+
+img,
+video,
+iframe {
+  max-width: 100%;
+}
+
+button,
+input,
+select,
+textarea {
+  max-width: 100%;
+  font: inherit;
 }
 
 /* Responsive Styles */
 @media (max-width: 31.25rem) {
-  /* 500px */
   body {
-    padding: 4rem 0.5rem 0.5rem; /* Adjust padding for small screens */
+    padding: 4rem 0.5rem 0.5rem;
+  }
+}
+
+/* Reduced motion for older iPads and low-power devices */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }
 
 /* Text Selection Color */
 ::selection {
-  background-color: var(
-    --primary-accent-bg
-  ); /* Background color when text is selected */
-  color: var(--primary-accent); /* Text color when selected */
+  background-color: var(--primary-accent-bg);
+  color: var(--primary-accent);
 }
 
 /* Custom Scrollbar Styles */
-/* Main scrollbar styling */
 ::-webkit-scrollbar {
-  width: 0.3125rem; /* 5px */
+  width: 0.3125rem;
 }
 
-/* Track of the scrollbar, set to be transparent */
 ::-webkit-scrollbar-track {
   background: transparent;
 }
 
-/* Handle of the scrollbar */
 ::-webkit-scrollbar-thumb {
-  background: #888; /* Gray color for the handle */
-  border-radius: 0.2rem; /* Rounded handle */
+  background: #888;
+  border-radius: 0.2rem;
 }
 
-/* Handle color on hover */
 ::-webkit-scrollbar-thumb:hover {
-  background: #555; /* Darker gray when hovering */
+  background: #555;
+}
+
+/* iPad / WebKit GPU acceleration and scroll smoothness */
+.player,
+[class*="EpisodeGrid"],
+[class*="ListContainer"] {
+  -webkit-overflow-scrolling: touch;
+  transform: translateZ(0);
+}
+
+/* Prevent layout thrash on card image load */
+img[loading="lazy"] {
+  content-visibility: auto;
 }

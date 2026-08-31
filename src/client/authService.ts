@@ -1,67 +1,66 @@
-// src/services/authService.ts
+// src/client/authService.ts
 import axios from 'axios';
-import { v4 as uuidv4 } from 'uuid'; // Ensure uuid is installed via npm or yarn
-import { UserData, MediaListStatus } from '../index'; // Assuming this is the correct path
+import { v4 as uuidv4 } from 'uuid';
+import { UserData, MediaListStatus } from '../index';
 import { useQuery, gql } from '@apollo/client';
+import { safeLocalStorageGet } from './safeStorage';
 
-// Constants for AniList OAuth, ideally should be loaded from environment variables
-const clientId = import.meta.env.VITE_CLIENT_ID || 'default_client_id';
-const clientSecret =
-  import.meta.env.VITE_CLIENT_SECRET || 'default_client_secret';
-const redirectUri = import.meta.env.VITE_REDIRECT_URI || 'default_redirect_uri';
+// Default public client ID for AniList OAuth if none configured in env
+const DEFAULT_CLIENT_ID = '49802'; // AniList client ID
+const CANONICAL_REDIRECT_URI = 'https://miruro-bzh.pages.dev/callback';
 
-/**
- * Generates a new CSRF token for each session
- * @returns {string} A UUID v4 CSRF token
- */
+export const getClientId = (): string => {
+  return (
+    import.meta.env.VITE_CLIENT_ID ||
+    safeLocalStorageGet('custom_anilist_client_id') ||
+    DEFAULT_CLIENT_ID
+  );
+};
+
+export const getRedirectUri = (): string => {
+  if (import.meta.env.VITE_REDIRECT_URI) {
+    return import.meta.env.VITE_REDIRECT_URI;
+  }
+
+  // Cloudflare Pages preview deployments use a different hostname, but the
+  // AniList client is registered against the canonical Pages domain. Send
+  // OAuth responses there so preview URLs do not trigger AniList's misleading
+  // "unsupported_grant_type" error for an unregistered redirect URI.
+  const hostname = window.location.hostname;
+  if (hostname === 'miruro-bzh.pages.dev' || hostname.endsWith('.miruro-bzh.pages.dev')) {
+    return CANONICAL_REDIRECT_URI;
+  }
+
+  return `${window.location.origin}/callback`;
+};
+
 export const generateCsrfToken = (): string => {
   return uuidv4();
 };
 
 /**
- * Builds the authorization URL with CSRF protection
- * @param {string} csrfToken CSRF token for state parameter
- * @returns {string} URL to redirect user to AniList OAuth login page
+ * Builds the authorization URL for AniList OAuth.
+ * Defaults to response_type=token (Implicit Grant) which works 100% client-side
+ * on static hosting (Netlify, Cloudflare Pages, Vercel) without needing a backend client secret.
  */
+export const buildAuthUrl = (csrfToken: string = generateCsrfToken()): string => {
+  // Miruro is a browser-only client. Never select authorization-code flow from
+  // VITE_CLIENT_SECRET: Vite embeds VITE_* values in the public JavaScript
+  // bundle, so a client secret would not be secret and there is no safe browser
+  // exchange endpoint to depend on here.
+  void csrfToken;
+  const authUrl = new URL('https://anilist.co/api/v2/oauth/authorize');
+  authUrl.searchParams.set('client_id', getClientId());
+  authUrl.searchParams.set('response_type', 'token');
 
-// authService.ts
-export const buildAuthUrl = (csrfToken: string): string => {
-  const scope = encodeURIComponent('');
-  const state = encodeURIComponent(csrfToken);
-  const encodedRedirectUri = encodeURIComponent(redirectUri);
+  // AniList's documented implicit flow uses only these two parameters. Its
+  // login handoff currently corrupts optional redirect/state parameters into
+  // an extra `=null` query item, which then produces unsupported_grant_type.
+  // The registered redirect URI is selected by AniList for this flow.
 
-  return `https://anilist.co/api/v2/oauth/authorize?client_id=${clientId}&scope=${scope}&response_type=code&redirect_uri=${encodedRedirectUri}&state=${state}`;
+  return authUrl.toString();
 };
 
-/**
- * Requests an access token from AniList using the authorization code
- * @param {string} code The authorization code received from AniList after user consent
- * @returns {Promise<string>} A promise that resolves to the access token
- */
-export const getAccessToken = async (code: string): Promise<string> => {
-  const url = 'https://anilist.co/api/v2/oauth/token';
-  const payload = {
-    client_id: clientId,
-    client_secret: clientSecret,
-    code,
-    grant_type: 'authorization_code',
-    redirect_uri: redirectUri,
-  };
-
-  try {
-    const response = await axios.post(url, payload);
-    if (response.data.access_token) {
-      return response.data.access_token;
-    } else {
-      throw new Error('Access token not found in the response');
-    }
-  } catch (error) {
-    console.error('Error obtaining access token:', error);
-    throw new Error('Failed to obtain access token');
-  }
-};
-
-// src/services/authService.js
 export const fetchUserData = async (accessToken: string): Promise<UserData> => {
   try {
     const response = await axios.post(
@@ -69,23 +68,23 @@ export const fetchUserData = async (accessToken: string): Promise<UserData> => {
       {
         query: `
           query {
-              Viewer {
-                  id
-                  name
-                  avatar {
-                      large
-                  }
-                  statistics {
-                      anime {
-                          count
-                          episodesWatched
-                          meanScore
-                          minutesWatched
-                      }
-                  }
+            Viewer {
+              id
+              name
+              avatar {
+                large
               }
+              statistics {
+                anime {
+                  count
+                  episodesWatched
+                  meanScore
+                  minutesWatched
+                }
+              }
+            }
           }
-      `,
+        `,
       },
       {
         headers: {
@@ -95,7 +94,9 @@ export const fetchUserData = async (accessToken: string): Promise<UserData> => {
         },
       },
     );
-    return response.data.data.Viewer; // Ensure the structure matches UserData interface
+    const viewer = response.data?.data?.Viewer;
+    if (!viewer) throw new Error('Viewer data missing');
+    return viewer;
   } catch (error) {
     console.error('Error fetching user data:', error);
     throw new Error('Failed to fetch user data');
@@ -140,14 +141,15 @@ const GET_USER_ANIME_LIST = gql`
 `;
 
 export const useUserAnimeList = (username: string, status: MediaListStatus) => {
-  const { data, loading, error } = useQuery(GET_USER_ANIME_LIST, {
+  const { data, loading, error, refetch } = useQuery(GET_USER_ANIME_LIST, {
     variables: { username, status },
-    skip: !username || !status, // Ensuring not to proceed without necessary variables
+    skip: !username || !status,
   });
 
   return {
     animeList: data?.MediaListCollection,
     loading,
     error,
+    refetch,
   };
 };

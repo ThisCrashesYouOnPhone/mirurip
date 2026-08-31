@@ -5,6 +5,7 @@ type UserStatisticsSort =
   | 'SCORE_ASC'
   | 'SCORE_DESC';
 export interface UserData {
+  id: number;
   name: string;
   avatar: {
     large: string;
