@@ -13,7 +13,7 @@
     "preview": "vite preview",
     "start": "vite build && bun run ./server/server.ts",
     "lint": "eslint . --ext js,jsx,ts,tsx --report-unused-disable-directives --max-warnings 0",
-    "test": "vitest run",
+    "test": "vitest run src/test functions/api",
     "test:watch": "vitest",
     "format": "prettier --write ."
   },
